@@ -81,6 +81,23 @@ german_credit_train.step_forward_BIC <- step(german_credit_train.glm_Null,
 
 BIC(german_credit_train.step_forward_BIC)
 
+# stepwise Selection Method #####
+german_credit_train.step_both = step(german_credit_train.glm_Null, 
+                                     scope = list(lower = german_credit_train.glm_Null, 
+                                                  upper = german_credit_train.glm0),
+                                                  direction = "both")  # AIC
+
+AIC(german_credit_train.step_both)
+
+
+german_credit_train.step_both_BIC = step(german_credit_train.glm_Null, 
+                                         scope = list(lower = german_credit_train.glm_Null, 
+                                                      upper = german_credit_train.glm0),
+                                         direction = "both", k = log(nrow(german_credit_train)))  # BIC
+
+BIC(german_credit_train.step_both_BIC)
+
+
 
 
 
