@@ -5,6 +5,8 @@
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(ROCR)
+library(rpart)
 
 # fetching the data
 german_credit <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/statlog/german/german.data")
@@ -82,7 +84,7 @@ german_credit_train.step_forward_BIC <- step(german_credit_train.glm_Null,
 BIC(german_credit_train.step_forward_BIC)
 
 # stepwise Selection Method #####
-german_credit_train.step_both = step(german_credit_train.glm_Null, 
+german_credit_train.step_both <- step(german_credit_train.glm_Null, 
                                      scope = list(lower = german_credit_train.glm_Null, 
                                                   upper = german_credit_train.glm0),
                                                   direction = "both")  # AIC
@@ -90,14 +92,44 @@ german_credit_train.step_both = step(german_credit_train.glm_Null,
 AIC(german_credit_train.step_both)
 
 
-german_credit_train.step_both_BIC = step(german_credit_train.glm_Null, 
+german_credit_train.step_both_BIC <- step(german_credit_train.glm_Null, 
                                          scope = list(lower = german_credit_train.glm_Null, 
                                                       upper = german_credit_train.glm0),
                                          direction = "both", k = log(nrow(german_credit_train)))  # BIC
 
 BIC(german_credit_train.step_both_BIC)
 
+# Predict on insample Training Data #### model choose to use
+### model chosen for seed(6)
+german_credit_train.trn_fit <- glm(response ~ age  + installment_rate + foreign + 
+                                    amount  + other_debtor + credit_his + n_credits  + 
+                                    n_people + telephone + present_resid + other_install  + sex  + 
+                                    housing + property + present_emp  + saving_acct + 
+                                    job + duration + purpose + chk_acct,  
+                                  family = binomial(link = "logit"), 
+                                  data =  german_credit_train)
 
+#german_credit_train.trn_fit = glm(response ~ chk_acct + duration + credit_his,
+#                                  family = binomial(link = "logit"), data =  german_credit_train)
+
+german_credit_train.prob.insample <- predict(german_credit_train.trn_fit, type = "response")
+german_credit_train.prob.insample  <- german_credit_train.prob.insample > (1/6)
+german_credit_train.prob.insample  <- as.numeric(german_credit_train.prob.insample)
+
+
+# Train data set - ROCR ####
+
+pred <- prediction(german_credit_train.prob.insample, german_credit_train$response)
+perf <- performance(pred, "tpr", "fpr")
+plot(perf, colorize = TRUE, main="In sample ROCR for GLM")
+
+as.numeric(performance(pred,'auc')@y.values) # AUC
+
+
+# Train Misclassification Rate ####
+
+table(german_credit_train$response, german_credit_train.prob.insample, dnn = c("Truth", "Predicted"))
+mean(ifelse(german_credit_train$response != german_credit_train.prob.insample, 1, 0))
 
 
 
