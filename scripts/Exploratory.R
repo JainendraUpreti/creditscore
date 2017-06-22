@@ -131,6 +131,69 @@ as.numeric(performance(pred,'auc')@y.values) # AUC
 table(german_credit_train$response, german_credit_train.prob.insample, dnn = c("Truth", "Predicted"))
 mean(ifelse(german_credit_train$response != german_credit_train.prob.insample, 1, 0))
 
+## Predicting on the test dataset
+# Test Data Prediction ######
+
+german_credit_test.prob.outsample <- predict(german_credit_train.trn_fit, german_credit_test, type = "response")
+german_credit_test.prob.outsample  <- german_credit_test.prob.outsample  > (1/6)
+german_credit_test.prob.outsample   <- as.numeric(german_credit_test.prob.outsample )
+
+# Test Data Misclassification Rate ####
+table(german_credit_test$response, german_credit_test.prob.outsample, dnn = c("Truth", "Predicted"))
+mean(ifelse(german_credit_test$response != german_credit_test.prob.outsample, 1, 0))
+
+##### The prediction is almost as good MSE - Train dataset: 0.337; Test dataset: 0.346###
+
+
+# Test Data ROC curve and AUC ####
+
+pred <- prediction(german_credit_test.prob.outsample, german_credit_test$response)
+perf <- performance(pred, "tpr", "fpr")
+plot(perf, colorize = TRUE, main="Out-of-sample ROCR for GLM")
+
+as.numeric(performance(pred,'auc')@y.values) # AUC
+
+### AUC for training was 73% and AUC for test is 70.71%
+
+########### Finding the best classification tree ######################
+
+german_credit.rpart <- rpart(formula = response ~ ., data = german_credit_train, method = "class", 
+                             parms = list(loss = matrix(c(0, 5, 1, 0), nrow = 2)), 
+                             cp=0.0000001) #method='anova' is default for regression
+
+plotcp(german_credit.rpart)  #cp value 0.0085 tree size 24
+
+## sequential search to find the value of cp
+
+cp <- seq(0.0005, 0.013, by=0.001)
+
+result <- cbind(cp, NA)
+k <- 1
+
+for (i in cp){
+  german_credit.rpart <- rpart(formula = response ~ ., data = german_credit_train, method = "class", 
+                               parms = list(loss = matrix(c(0, 5, 1, 0), nrow = 2)), cp=i) #method='anova' is default for regression
+  credit.test.pred.tree1 = predict(german_credit.rpart, german_credit_test)[ ,2]
+  credit.test.pred.tree1 = as.numeric( credit.test.pred.tree1 > (1/6) )
+  result[k, 2] <- mean(ifelse(german_credit_test$response != credit.test.pred.tree1, 1, 0))
+  k <- k+1
+}
+result[which.min(result[,2]), 1]  ##cp value which minimizes the misclassification rate
+plot(cp, result[,2], ylab="misclassification rate", main="Find the best tree",type="b")
+
+## Also gives value 0.0085, we will use this value
+
+##best tree for seed(6)
+german_credit.rpart <- rpart(formula = response ~ ., data = german_credit_train, method = "class", 
+                             parms = list(loss = matrix(c(0, 5, 1, 0), nrow = 2)), 
+                             cp=0.0085) #method='anova' is default for regression
+
+
+german_credit.rpart
+plot(german_credit.rpart)
+text(german_credit.rpart) #tree model
+
+########## Classification tree complete #############
 
 
 
